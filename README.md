@@ -1,75 +1,79 @@
-# Custom Database Template for the MiSTer Downloader
+# MiSTer FPGA Scripts
 
-By following these instructions, you'll create your own [Custom Database for the MiSTer Downloader](https://github.com/MiSTer-devel/Downloader_MiSTer/blob/main/docs/custom-databases.md). This database can be integrated in MiSTer FPGA by just editing the `downloader.ini` file at the root of the SD.
+A collection of utility scripts designed to be executed directly from the [MiSTer FPGA](https://github.com/MiSTer-devel/Main_MiSTer/wiki) On-Screen Display (OSD) using a controller, or via the command line over SSH. 
 
-Once your database is up, adding files to it is very simple. You'll only have to upload files to your repository on GitHub, and after that, your users will fetch these files directly in their devices, by just running *downloader* or *update_all*.
+## Included Scripts
 
-## How to generate your own Custom Database for the MiSTer Downloader:
-1. Make sure you are logged in into your GitHub account. Or register a new account if you don't have any yet.
-2. Then click on
-    <a style="margin-top:100px;" href="https://github.com/theypsilon/DB-Template_MiSTer/generate">
-        <img src="https://img.shields.io/badge/Use_this_template-2ea44f" 
-            alt="Use this template"
-            title="Create repository from this template"></a>
-button to create your own public Custom Database repository on GitHub.
-3. After less than 5 minutes, you're database file will be generated at `https://raw.githubusercontent.com/<YOUR GITHUB USER>/<YOUR GITHUB REPOSITORY>/db/db.json.zip` (replacing the <> fields accordingly) and will be ready to be used. For example, if your GitHub user is `jose` and your repository name is `game_wallpapers`, the url will be: `https://raw.githubusercontent.com/jose/game_wallpapers/db/db.json.zip`
-4. To integrate it in a MiSTer device, download the following file: `https://raw.githubusercontent.com/<YOUR GITHUB USER>/<YOUR GITHUB REPOSITORY>/db/downloader_<YOUR GITHUB USER>_<YOUR GITHUB REPOSITORY>.zip`.
-Then extract the `.ini` file from it and place it in the root of the SD card.
-5. After that, run *downloader* or *update_all* as usual. It will try to fetch the files from your newly created database. If your database is still empty -which is your case if you followed these instructions-, obviously it won't download any file yet, but it will show up in the logs. For adding files to the database check the next section.
+### Tailscale Management (`tailscale_*.sh`)
 
-## How to add files to your already working Custom Database:
+This suite of scripts allows you to install, update, and manage a [Tailscale](https://tailscale.com/) node directly on your MiSTer, allowing secure remote access to your devices over your Tailnet.
 
-Once you have your database up and running (check previous section to figure out how to set it up), adding files is very straightforward.
+*   `tailscale_update.sh`: Dynamically determines the latest stable ARM release. It checks your local installation and, if a newer version is found, downloads the update and gracefully restarts the daemon without requiring manual intervention.
+*   `tailscale_enable.sh`: Initializes and brings up the Tailscale daemon in the background. Enables start on boot. Requires registering on first run.
+*   `tailscale_disable.sh`: Safely halts the Tailscale daemon and terminates the connection. Disables start on boot.
 
-Just upload any file to your repository by using GitHub UI (Add File > Upload files), or via git. Once the files show up in your repository, they'll also be added to your database automatically. You may see the *Actions* tab in your repository to see how the automation did its magic if you are curious. **NEW:** If you want to add files without uploading them to the repository, you may use the [external_files.csv](external_files.csv) file for that.
+> **⚠️ Important Note on TUN Support**
+> The previous stable MiSTer kernel (`5.15.1-MiSTer`) lacks native TUN routing support, meaning Tailscale will default to operating in user-space mode, which dramatically limits its functionality. However, TUN support is now enabled by default in `6.18.38-MiSTer` and newer so Tailscale works well with full native routing.
 
-A couple of things to consider when uploading files:
+* If this is a fresh install of Tailscale, run the `tailscale_enable.sh` script via SSH first so you can easily copy and paste the authentication URL into your browser. It will *also* generate a scannable QR code but that is less reliable.
+* If you have multiple MiSTers you plan on using with Tailscale, give it a unique tailscale host name in the [Tailscale Console](https://console.tailscale.com/admin/machines)
+* You may also want to consider disabling key expiration for this host in the [Tailscale Console](https://console.tailscale.com/admin/machines)
 
-- When a user fetches the files via *downloader* or *update_all*, the downloaded file structure will mirror 1:1 the file structure you have in your repository at GitHub. This means, if you have a folder `_Cores/` containing some files in your repository, an identical `_Cores` folder will show up in MiSTer containing the exact same files.
+### RetroSMB (`retrosmb_*.sh`)
 
-- The files `README.md`, `LICENSE`, and the `.github` folder won't be included in your database. Just ignore them, they won't be installed in the devices. The file `external_files.csv` won't show up on your device either, but the files listed inside it will.
+These scripts automate and manage the process of configuring CIFS network mounts to prefer local connections over VPN when connecting to a RetroNAS setup. By mapping these remote shares based selectively your MiSTer can seamlessly load games, BIOS files, and save states directly over local *or* remote networks rather than relying entirely on local SD card storage.
 
-- You may upload as many files as you want as long as they don't violate GitHub constraints (100mb is max size per file).
+*   `retrosmb_dns_helper.sh`: Checks to see if `local_domain` server is resoveable and if not fails to `remote_ip`. Sets a local hosts entry with the resovled address. Optionally can update `cifs_mount.ini` file if defined as the MiSTer `cifs_mount.sh` script doesn't currently support hosts resolution.
+*   `retrosmb_dns_enable.sh`: Enables DNS helper start on boot via `user-startup.sh`
+*   `retrosmb_dns_disable.sh`: Disables DNS helper start on boot via `user-startup.sh`
 
-- You should avoid full path clashes between your files and the files from other databases so that your users don't run into issues when using multiple databases at the same time.
+Copy or rename the template `_retrosmb_dns_helper.ini` in the `/media/fat/Scripts/` folder and configure as needed.
 
-## How your users will integrate your Custom Database in their MiSTers:
+```ini
+[Network]
+target_host=retrosmb
+local_domain=retronas
+remote_ip=100.x.x.x
+network_timeout=60
+cifs_ini_file=/media/fat/Scripts/cifs_mount.ini
+```
 
-Your users can integrate your database in two ways.
+## Installation & Updates
 
-### Drop-in database
+> You do not need to clone this repository to use these scripts.
 
-The easiest option is for users to drag and drop a file onto their SD card.
+You can configure the MiSTer Downloader (used by the Update All script) to automatically fetch and keep these scripts up to date alongside your cores and arcade databases.
 
-For example, if your GitHub username is `jose` and your repository is `game_wallpapers`, users can download:
+#### Drag and Drop Install
 
-`https://raw.githubusercontent.com/jose/game_wallpapers/db/downloader_jose_game_wallpapers.zip`
+The easiest option is to drag and drop a file onto their SD card.
+
+Download [`downloader_badamsz_MiSTer_Scripts.zip`](https://raw.githubusercontent.com/badamsz/MiSTer_Scripts/db/downloader_badamsz_MiSTer_Scripts.zip)
 
 Then they only need to:
 
 1. Extract `downloader_jose_game_wallpapers.ini` from the ZIP.
 2. Copy it to the **root of the MiSTer SD card**, next to `downloader.ini`.
 
-That's it. The database is ready to use.
+That's it. 
 
+#### Manual INI editing (for Advanced Users)
 
-### Manual INI editing (for Advanced Users)
-
-If they prefer to do it manually instead, they may add the following lines to the bottom of `downloader.ini`:
+If you prefer to do it manually instead, they may add the following lines to the bottom of `downloader.ini`:
 
 ```ini
-[jose/game_wallpapers]
-db_url = https://raw.githubusercontent.com/jose/game_wallpapers/db/db.json.zip
+[badamsz/MiSTer_Scripts]
+db_url = https://raw.githubusercontent.com/badamsz/MiSTer_Scripts/db/db.json.zip
 ```
 
-This needs to be done just once by your users. After that, whenever they run *downloader* or *update_all* they'll also be installing your updated files.
+This needs to be done just once. After that, whenever you run *downloader* or *update_all* you will install any updated files.
 
-## Modifying README.md
+## Usage
 
-After you have your own repository based on this template, a good idea would be to edit your `README.md` describing the content of your database and how to use it. That way users will learn about your Database and will integrate it into their MiSTer's easily.
+Once the scripts are placed in the /media/fat/Scripts/ directory, they are fully integrated into the MiSTer UI.
 
-Feel free to remove any reference to the original template there.
+1. Open the main MiSTer OSD using your controller, keyboard, or the MiSTer physical button.
+2. Scroll down and select Scripts.
+3. Select the script you wish to run (e.g., tailscale_update or retrosmb_dns_helper) and press the action button.
 
-## DB Inspector
-
-You may use this tool to inspect the resulting database easily: https://theypsilon.github.io/DB-Inspector_MiSTer
+An overlay window will appear showing the output of the script as it runs.
