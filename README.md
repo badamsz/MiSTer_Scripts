@@ -59,7 +59,7 @@ That's it.
 
 #### Manual INI editing (for Advanced Users)
 
-If you prefer to do it manually instead, they may add the following lines to the bottom of `downloader.ini`:
+If you prefer to do it manually instead, you may add the following lines to the bottom of `downloader.ini`:
 
 ```ini
 [badamsz/MiSTer_Scripts]
