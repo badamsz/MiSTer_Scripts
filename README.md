@@ -50,9 +50,9 @@ The easiest option is to drag and drop a file onto their SD card.
 
 Download [`downloader_badamsz_MiSTer_Scripts.zip`](https://raw.githubusercontent.com/badamsz/MiSTer_Scripts/db/downloader_badamsz_MiSTer_Scripts.zip)
 
-Then they only need to:
+Then you only need to:
 
-1. Extract `downloader_jose_game_wallpapers.ini` from the ZIP.
+1. Extract `downloader_badamsz_MiSTer_Scripts.ini` from the ZIP.
 2. Copy it to the **root of the MiSTer SD card**, next to `downloader.ini`.
 
 That's it. 
