@@ -46,7 +46,7 @@ You can configure the MiSTer Downloader (used by the Update All script) to autom
 
 #### Drag and Drop Install
 
-The easiest option is to drag and drop a file onto their SD card.
+The easiest option is to drag and drop a file onto your SD card.
 
 Download [`downloader_badamsz_MiSTer_Scripts.zip`](https://raw.githubusercontent.com/badamsz/MiSTer_Scripts/db/downloader_badamsz_MiSTer_Scripts.zip)
 
@@ -67,13 +67,3 @@ db_url = https://raw.githubusercontent.com/badamsz/MiSTer_Scripts/db/db.json.zip
 ```
 
 This needs to be done just once. After that, whenever you run *downloader* or *update_all* you will install any updated files.
-
-## Usage
-
-Once the scripts are placed in the /media/fat/Scripts/ directory, they are fully integrated into the MiSTer UI.
-
-1. Open the main MiSTer OSD using your controller, keyboard, or the MiSTer physical button.
-2. Scroll down and select Scripts.
-3. Select the script you wish to run (e.g., tailscale_update or retrosmb_dns_helper) and press the action button.
-
-An overlay window will appear showing the output of the script as it runs.
