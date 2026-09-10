@@ -18,7 +18,6 @@ get_ini_value() {
 
 # Fetch optional file paths from INI
 INI_LOG_FILE=$(get_ini_value "log_file")
-INI_CIFS_INI_FILE=$(get_ini_value "cifs_ini_file")
 
 # Apply defaults if not specified in the INI file
 LOG_FILE="${INI_LOG_FILE:-/var/log/retrosmb_dns_helper.log}"
@@ -41,6 +40,7 @@ TARGET_HOST=$(get_ini_value "target_host")
 LOCAL_DOMAIN=$(get_ini_value "local_domain")
 REMOTE_IP=$(get_ini_value "remote_ip")
 NETWORK_TIMEOUT=$(get_ini_value "network_timeout")
+CIFS_INI_FILE=$(get_ini_value "cifs_ini_file")
 
 # Apply default timeout of 60 seconds if not specified in INI
 NETWORK_TIMEOUT="${NETWORK_TIMEOUT:-60}"
