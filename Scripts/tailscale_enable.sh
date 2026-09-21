@@ -1,8 +1,25 @@
 #!/bin/bash
 TS_DIR="/media/fat/linux/tailscale"
 STARTUP="/media/fat/linux/user-startup.sh"
+UPDATE_SCRIPT="/media/fat/Scripts/tailscale_update.sh"
 
-mkdir -p $TS_DIR/.state
+# Install Tailscale first if it isn't present yet
+if [ ! -x "$TS_DIR/tailscale" ] || [ ! -x "$TS_DIR/tailscaled" ]; then
+    echo "Tailscale binaries not found. Installing now..."
+    if [ -x "$UPDATE_SCRIPT" ]; then
+        "$UPDATE_SCRIPT"
+    else
+        echo "Error: Could not find tailscale_update.sh next to this script ($UPDATE_SCRIPT)."
+        exit 1
+    fi
+
+    if [ ! -x "$TS_DIR/tailscale" ] || [ ! -x "$TS_DIR/tailscaled" ]; then
+        echo "Error: Installation failed. Tailscale binaries still missing at $TS_DIR."
+        exit 1
+    fi
+fi
+
+mkdir -p "$TS_DIR/.state"
 
 # Dynamically check for TUN support
 modprobe tun 2>/dev/null
@@ -15,14 +32,14 @@ else
 fi
 
 if ! pidof tailscaled > /dev/null; then
-    $TS_DIR/tailscaled $TUN_FLAG --statedir=$TS_DIR/.state/ > /dev/null 2>&1 &
+    "$TS_DIR/tailscaled" $TUN_FLAG --statedir="$TS_DIR/.state/" > /dev/null 2>&1 &
     sleep 2
 else
     echo "Daemon is already running."
 fi
 
 echo "Bringing network up..."
-$TS_DIR/tailscale up --qr --accept-dns=false
+"$TS_DIR/tailscale" up --qr --accept-dns=false
 
 echo "Updating boot configuration..."
 if [ -f "$STARTUP" ]; then
@@ -44,4 +61,4 @@ echo "Added detected Tailscale configuration to startup process."
 
 sleep 2
 echo "Current Tailscale IP:"
-$TS_DIR/tailscale ip
+"$TS_DIR/tailscale" ip
