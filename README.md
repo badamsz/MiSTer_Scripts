@@ -10,6 +10,7 @@ This suite of scripts allows you to install, update, and manage a [Tailscale](ht
 
 *   `tailscale_update.sh`: Dynamically determines the latest stable ARM release. It checks your local installation and, if a newer version is found, downloads the update and gracefully restarts the daemon without requiring manual intervention.
 *   `tailscale_enable.sh`: Initializes and brings up the Tailscale daemon in the background. Enables start on boot. Requires registering on first run.
+*   `tailscale_start.sh`: Starts the Tailscale daemon (auto-detecting TUN support) and connects to your Tailnet for the current session only. Used by the other scripts and at boot.
 *   `tailscale_disable.sh`: Safely halts the Tailscale daemon and terminates the connection. Disables start on boot.
 
 > **⚠️ Important Note on TUN Support**
@@ -36,7 +37,11 @@ local_domain=retronas
 remote_ip=100.x.x.x
 network_timeout=60
 cifs_ini_file=/media/fat/Scripts/cifs_mount.ini
+run_cifs_mount=false
 ```
+
+*   `cifs_ini_file` (optional): The `cifs_mount.ini` whose `SERVER` value is updated with the resolved address.
+*   `run_cifs_mount` (optional): Set to `true` to have the helper run `cifs_mount.sh` (found next to `cifs_ini_file`) after patching `SERVER`. This guarantees the shares mount with the updated address. If you use this, set `MOUNT_AT_BOOT="false"` in `cifs_mount.ini` so the shares aren't also mounted separately (and possibly earlier, with the old address).
 
 ## Installation & Updates
 

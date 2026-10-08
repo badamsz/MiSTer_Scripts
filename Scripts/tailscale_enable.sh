@@ -2,6 +2,12 @@
 TS_DIR="/media/fat/linux/tailscale"
 STARTUP="/media/fat/linux/user-startup.sh"
 UPDATE_SCRIPT="/media/fat/Scripts/tailscale_update.sh"
+START_SCRIPT="/media/fat/Scripts/tailscale_start.sh"
+
+if [ ! -x "$START_SCRIPT" ]; then
+    echo "Error: Could not find tailscale_start.sh next to this script ($START_SCRIPT)."
+    exit 1
+fi
 
 # Install Tailscale first if it isn't present yet
 if [ ! -x "$TS_DIR/tailscale" ] || [ ! -x "$TS_DIR/tailscaled" ]; then
@@ -12,53 +18,23 @@ if [ ! -x "$TS_DIR/tailscale" ] || [ ! -x "$TS_DIR/tailscaled" ]; then
         echo "Error: Could not find tailscale_update.sh next to this script ($UPDATE_SCRIPT)."
         exit 1
     fi
-
-    if [ ! -x "$TS_DIR/tailscale" ] || [ ! -x "$TS_DIR/tailscaled" ]; then
-        echo "Error: Installation failed. Tailscale binaries still missing at $TS_DIR."
-        exit 1
-    fi
 fi
 
-mkdir -p "$TS_DIR/.state"
-
-# Dynamically check for TUN support
-modprobe tun 2>/dev/null
-if [ -c /dev/net/tun ]; then
-    TUN_FLAG=""
-    echo "Native TUN support detected. Starting natively..."
-else
-    TUN_FLAG="--tun=userspace-networking"
-    echo "No TUN support detected. Falling back to userspace mode..."
-fi
-
-if ! pidof tailscaled > /dev/null; then
-    "$TS_DIR/tailscaled" $TUN_FLAG --statedir="$TS_DIR/.state/" > /dev/null 2>&1 &
-    sleep 2
-else
-    echo "Daemon is already running."
-fi
-
-echo "Bringing network up..."
-"$TS_DIR/tailscale" up --qr --accept-dns=false
+"$START_SCRIPT" --qr || exit 1
 
 echo "Updating boot configuration..."
 if [ -f "$STARTUP" ]; then
-    # Clean out any old Tailscale lines to prevent conflicting flags
-    sed -i '/# Tailscale Autostart/d' "$STARTUP"
-    sed -i '/ln -sf $TS_DIR/tailscale /usr/bin/tailscale/d' "$STARTUP"
-    sed -i '/ln -sf $TS_DIR/tailscaled /usr/bin/tailscaled/d' "$STARTUP"
-    sed -i '\|'$TS_DIR'/tailscaled|d' "$STARTUP"
-    sed -i '\|'$TS_DIR'/tailscale up|d' "$STARTUP"
+    # Clean out any old Tailscale lines (including ones from older versions of these scripts)
+    sed -i -e '/# Tailscale Autostart/d' -e '\|'"$TS_DIR"'/|d' -e '\|tailscale_start.sh|d' "$STARTUP"
 fi
 
-echo "" >> "$STARTUP"
+# Only add a separating blank line if the file doesn't already end with one
+if [ -s "$STARTUP" ] && [ -n "$(tail -n 1 "$STARTUP")" ]; then
+    echo "" >> "$STARTUP"
+fi
 echo "# Tailscale Autostart" >> "$STARTUP"
-echo "ln -sf $TS_DIR/tailscale /usr/bin/tailscale" >> "$STARTUP"
-echo "ln -sf $TS_DIR/tailscaled /usr/bin/tailscaled" >> "$STARTUP"
-echo "$TS_DIR/tailscaled $TUN_FLAG --statedir=$TS_DIR/.state/ > /dev/null 2>&1 &" >> "$STARTUP"
-echo "$TS_DIR/tailscale up --accept-dns=false > /dev/null 2>&1 &" >> "$STARTUP"
-echo "Added detected Tailscale configuration to startup process."
+echo "$START_SCRIPT > /dev/null 2>&1 &" >> "$STARTUP"
+echo "Added Tailscale to startup process."
 
-sleep 2
 echo "Current Tailscale IP:"
 "$TS_DIR/tailscale" ip

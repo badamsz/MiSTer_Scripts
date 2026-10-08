@@ -12,8 +12,20 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 # Lightweight function to parse INI values in BusyBox
+# Tolerates spaces around "=", skips comments and keeps any "=" inside the value
 get_ini_value() {
-    awk -F '=' -v key="$1" '$1==key { sub(/\r/, ""); print $2 }' "$CONFIG_FILE"
+    awk -v key="$1" '
+        { sub(/\r$/, "") }
+        /^[[:space:]]*[#;]/ { next }
+        {
+            i = index($0, "=")
+            if (i == 0) next
+            k = substr($0, 1, i - 1)
+            v = substr($0, i + 1)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", k)
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "", v)
+            if (k == key) { print v; exit }
+        }' "$CONFIG_FILE"
 }
 
 # Fetch optional file paths from INI
@@ -41,6 +53,7 @@ LOCAL_DOMAIN=$(get_ini_value "local_domain")
 REMOTE_IP=$(get_ini_value "remote_ip")
 NETWORK_TIMEOUT=$(get_ini_value "network_timeout")
 CIFS_INI_FILE=$(get_ini_value "cifs_ini_file")
+RUN_CIFS_MOUNT=$(get_ini_value "run_cifs_mount")
 
 # Apply default timeout of 60 seconds if not specified in INI
 NETWORK_TIMEOUT="${NETWORK_TIMEOUT:-60}"
@@ -92,13 +105,21 @@ fi
 # ==========================================
 # Patch cifs_mount.ini
 # ==========================================
-if [ -w "$CIFS_INI_FILE" ]; then
+if [ -z "$CIFS_INI_FILE" ]; then
+    log "No cifs_ini_file configured. Skipping cifs_mount.ini update."
+elif [ -w "$CIFS_INI_FILE" ]; then
     log "Patching $CIFS_INI_FILE with resolved IP..."
-    # Matches any line starting with SERVER= (or #SERVER=) and replaces it
-    sed -i "s/^[#]*SERVER=.*/SERVER=\"$SELECTED_IP\"/" "$CIFS_INI_FILE"
-    
+    # Replace any active SERVER= line; if there isn't one, uncomment only the first #SERVER= line
+    HAS_ACTIVE_SERVER=$(grep -c '^SERVER=' "$CIFS_INI_FILE")
+    TMP_INI="/tmp/retrosmb_cifs_ini.$$"
+    awk -v ip="$SELECTED_IP" -v has_active="$HAS_ACTIVE_SERVER" '
+        /^SERVER=/ { print "SERVER=\"" ip "\""; next }
+        has_active == 0 && !done && /^#+SERVER=/ { print "SERVER=\"" ip "\""; done = 1; next }
+        { print }' "$CIFS_INI_FILE" > "$TMP_INI" && cat "$TMP_INI" > "$CIFS_INI_FILE"
+    rm -f "$TMP_INI"
+
     # Verify the write was successful
-    if grep -q "^SERVER=\"$SELECTED_IP\"$" "$CIFS_INI_FILE"; then
+    if grep -qxF "SERVER=\"$SELECTED_IP\"" "$CIFS_INI_FILE"; then
         log "Success: Updated SERVER in $CIFS_INI_FILE to $SELECTED_IP"
     else
         log "Error: Failed to verify SERVER update in $CIFS_INI_FILE"
@@ -111,13 +132,43 @@ fi
 # Update /etc/hosts
 # ==========================================
 if [ -w "/etc/hosts" ]; then
-    sed -i "/\b$TARGET_HOST\b/d" /etc/hosts
+    # Drop only lines where TARGET_HOST is an exact hostname field (ignoring trailing comments)
+    TMP_HOSTS="/tmp/retrosmb_hosts.$$"
+    awk -v host="$TARGET_HOST" '
+        {
+            for (i = 2; i <= NF; i++) {
+                if ($i ~ /^#/) break
+                if ($i == host) next
+            }
+            print
+        }' /etc/hosts > "$TMP_HOSTS" && cat "$TMP_HOSTS" > /etc/hosts
+    rm -f "$TMP_HOSTS"
+
     echo "$SELECTED_IP $TARGET_HOST" >> /etc/hosts
-    if grep -q "^$SELECTED_IP $TARGET_HOST$" /etc/hosts; then
+    if grep -qxF "$SELECTED_IP $TARGET_HOST" /etc/hosts; then
         log "Success: Hosts file verified and updated $TARGET_HOST correctly."
     else
         log "Error: Failed to verify the new $TARGET_HOST entry in /etc/hosts."
     fi
 else
     log "Warning: /etc/hosts is not writable. Skipping hosts update."
+fi
+
+# ==========================================
+# Mount CIFS shares (optional)
+# ==========================================
+# Running the mount from here guarantees it happens after SERVER has been patched,
+# instead of racing cifs_mount.sh's own MOUNT_AT_BOOT entry in user-startup.sh
+if [ "$RUN_CIFS_MOUNT" = "true" ]; then
+    CIFS_MOUNT_SCRIPT="${CIFS_INI_FILE%.*}.sh"
+    if [ -n "$CIFS_INI_FILE" ] && [ -x "$CIFS_MOUNT_SCRIPT" ]; then
+        log "Running $CIFS_MOUNT_SCRIPT..."
+        if "$CIFS_MOUNT_SCRIPT" >> "$LOG_FILE" 2>&1; then
+            log "Success: CIFS shares mounted."
+        else
+            log "Error: $CIFS_MOUNT_SCRIPT failed. See output above."
+        fi
+    else
+        log "Error: run_cifs_mount is enabled but no executable cifs_mount script was found next to cifs_ini_file."
+    fi
 fi

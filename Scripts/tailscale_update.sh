@@ -1,5 +1,6 @@
 #!/bin/bash
 TS_DIR="/media/fat/linux/tailscale"
+START_SCRIPT="/media/fat/Scripts/tailscale_start.sh"
 
 echo "Checking local Tailscale version..."
 if [ -f "$TS_DIR/tailscale" ]; then
@@ -63,23 +64,12 @@ echo "Update complete (v$LATEST_VERSION installed)."
 
 # Restart the daemon if it was running before we started the update
 if [ $WAS_RUNNING -eq 1 ]; then
-    echo "Restarting Tailscale daemon..."
-    
-    modprobe tun 2>/dev/null
-    if [ -c /dev/net/tun ]; then
-        TUN_FLAG=""
-    else
-        TUN_FLAG="--tun=userspace-networking"
+    echo "Restarting Tailscale..."
+    if "$START_SCRIPT"; then
+        echo "Tailscale is back online."
+        sleep 1
+        "$TS_DIR/tailscale" ip
     fi
-    
-    $TS_DIR/tailscaled $TUN_FLAG --statedir=$TS_DIR/.state/ > /dev/null 2>&1 &
-    sleep 2
-    
-    echo "Reconnecting to the tailnet..."
-    $TS_DIR/tailscale up --accept-dns=false > /dev/null 2>&1 &
-    
-    echo "Tailscale is back online."
-    $TS_DIR/tailscale ip
 else
     echo "Update finished. Run the Enable script to start Tailscale."
 fi

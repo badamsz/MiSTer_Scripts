@@ -7,11 +7,8 @@ killall tailscaled 2>/dev/null
 
 echo "Removing from boot sequence..."
 if [ -f "$STARTUP" ]; then
-    sed -i '/# Tailscale Autostart/d' "$STARTUP"
-    sed -i '/ln -sf $TS_DIR/tailscale /usr/bin/tailscale/d' "$STARTUP"
-    sed -i '/ln -sf $TS_DIR/tailscaled /usr/bin/tailscaled/d' "$STARTUP"
-    sed -i '\|'$TS_DIR'/tailscaled|d' "$STARTUP"
-    sed -i '\|'$TS_DIR'/tailscale up|d' "$STARTUP"
+    # Also removes lines left by older versions of tailscale_enable.sh
+    sed -i -e '/# Tailscale Autostart/d' -e '\|'"$TS_DIR"'/|d' -e '\|tailscale_start.sh|d' "$STARTUP"
 fi
 
 echo "Tailscale disabled."
