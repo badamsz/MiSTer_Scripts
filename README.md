@@ -20,6 +20,22 @@ This suite of scripts allows you to install, update, and manage a [Tailscale](ht
 * If you have multiple MiSTers you plan on using with Tailscale, give it a unique tailscale host name in the [Tailscale Console](https://console.tailscale.com/admin/machines)
 * You may also want to consider disabling key expiration for this host in the [Tailscale Console](https://console.tailscale.com/admin/machines)
 
+### NetBird Management (`netbird_*.sh`)
+
+These scripts mirror the Tailscale ones for [NetBird](https://netbird.io/), an open source WireGuard-based alternative that can also be self-hosted.
+
+*   `netbird_update.sh`: Looks up the latest NetBird release on GitHub. It checks your local installation and, if a newer version is found, downloads the `linux_armv6` build (which runs on the MiSTer's ARMv7 CPU) and restarts the daemon if it was running.
+*   `netbird_enable.sh`: Installs NetBird if needed, starts the daemon in the background and connects. Enables start on boot. Requires registering on first run.
+*   `netbird_start.sh`: Starts the NetBird daemon (auto-detecting TUN support, falling back to userspace netstack mode) and connects to your network for the current session only. Used by the other scripts and at boot.
+*   `netbird_disable.sh`: Disconnects and stops the NetBird daemon. Disables start on boot.
+
+NetBird's binaries and state are kept in `/media/fat/linux/netbird/`. NetBird DNS management is turned off (`--disable-dns`) so it doesn't overwrite the MiSTer's `/etc/resolv.conf`.
+
+* **SSO login:** If this is a fresh install, run `netbird_enable.sh` via SSH first. It prints a login URL that you open in your browser to register the MiSTer.
+* **Setup key (no SSH needed):** Alternatively, create a setup key in the [NetBird Dashboard](https://app.netbird.io/setup-keys) and save it as the only contents of `/media/fat/linux/netbird/setup_key`. The scripts will use it to register automatically, so `netbird_enable.sh` can be run straight from the OSD.
+* **Self-hosted:** Pass your management server when running the enable or start script over SSH, e.g. `netbird_start.sh --management-url https://netbird.example.com`. NetBird remembers it for later boots.
+* As with Tailscale, the TUN note above applies: on older kernels without TUN support, NetBird runs in userspace mode with limited functionality.
+
 ### RetroSMB (`retrosmb_*.sh`)
 
 These scripts automate and manage the process of configuring CIFS network mounts to prefer local connections over VPN when connecting to a RetroNAS setup. By mapping these remote shares based selectively your MiSTer can seamlessly load games, BIOS files, and save states directly over local *or* remote networks rather than relying entirely on local SD card storage.
