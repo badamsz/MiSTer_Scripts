@@ -35,6 +35,8 @@ NetBird's binaries and state are kept in `/media/fat/linux/netbird/`. NetBird DN
 * **Setup key (no SSH needed):** Alternatively, create a setup key in the [NetBird Dashboard](https://app.netbird.io/setup-keys) and save it as the only contents of `/media/fat/linux/netbird/setup_key`. The scripts will use it to register automatically, so `netbird_enable.sh` can be run straight from the OSD.
 * **Self-hosted:** Pass your management server when running the enable or start script over SSH, e.g. `netbird_start.sh --management-url https://netbird.example.com`. NetBird remembers it for later boots.
 * As with Tailscale, the TUN note above applies: on older kernels without TUN support, NetBird runs in userspace mode with limited functionality.
+* If you have multiple MiSTers you plan on using with NetBird, give it a unique netbird peer name in the [NetBird Peers](https://app.netbird.io/peers) console
+* You may also want to consider disabling session expiration for this peer in the [NetBird Peers](https://app.netbird.io/peers) console
 
 ### RetroSMB (`retrosmb_*.sh`)
 
