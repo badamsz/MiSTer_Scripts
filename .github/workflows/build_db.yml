@@ -17,3 +17,65 @@ jobs:
       run: set -o pipefail && curl --fail --location https://raw.githubusercontent.com/theypsilon/Downloader_DB-Template_MiSTer/main/.github/build_db.py | python3 -
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    # Adds a filter tag for each script's prefix (text before the first "_"),
+    # e.g. tailscale_enable.sh -> "tailscale", _retrosmb_dns_helper.ini -> "retrosmb".
+    - name: Add prefix filter tags
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        set -euo pipefail
+        work="$(mktemp -d)"
+        git clone --depth 1 --branch db "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$work"
+        cd "$work"
+        unzip -o -q db.json.zip
+
+        python3 - db.json <<'EOF'
+        import json, sys
+        from pathlib import PurePosixPath
+
+        path = sys.argv[1]
+        with open(path) as fh:
+            db = json.load(fh)
+
+        tag_dict = db.setdefault('tag_dictionary', {})
+        next_index = max(tag_dict.values(), default=-1) + 1
+
+        def tag_index(term):
+            global next_index
+            clean = term.lower().replace('_', '').replace('-', '')
+            if clean not in tag_dict:
+                tag_dict[clean] = next_index
+                next_index += 1
+            return tag_dict[clean]
+
+        count = 0
+        for file_path, desc in db['files'].items():
+            parts = PurePosixPath(file_path).parts
+            if len(parts) != 2 or parts[0].lower() != 'scripts':
+                continue
+            name = parts[1].lstrip('_')
+            if '_' not in name:
+                continue
+            idx = tag_index(name.split('_', 1)[0])
+            tags = desc.setdefault('tags', [])
+            if idx not in tags:
+                tags.append(idx)
+                tags.sort()
+                count += 1
+
+        with open(path, 'w') as fh:
+            json.dump(db, fh, separators=(',', ':'))
+        print(f'Added prefix tags to {count} files')
+        EOF
+
+        rm db.json.zip
+        zip -q db.json.zip db.json
+        git add db.json.zip
+        if git diff --cached --quiet; then
+          echo "No tag changes."
+          exit 0
+        fi
+        git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+          commit -m "Add prefix filter tags"
+        git push origin db
