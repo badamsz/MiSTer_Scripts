@@ -90,3 +90,22 @@ db_url = https://raw.githubusercontent.com/badamsz/MiSTer_Scripts/db/db.json.zip
 ```
 
 This needs to be done just once. After that, whenever you run *downloader* or *update_all* you will install any updated files.
+
+#### Installing Only Some Scripts (Filters)
+
+By default every script is installed. To pick which ones you get, add a `filter` line under this repository's section, either in `downloader.ini` or in the drop-in `downloader_badamsz_MiSTer_Scripts.ini`:
+
+```ini
+[badamsz/MiSTer_Scripts]
+db_url = https://raw.githubusercontent.com/badamsz/MiSTer_Scripts/db/db.json.zip
+filter = tailscale retrosmb
+```
+
+Available terms: `tailscale`, `retrosmb`, `netbird`.
+
+- Positive terms install **only** what matches: `filter = tailscale` installs just the Tailscale scripts.
+- Terms prefixed with `!` exclude: `filter = !netbird` installs everything except the NetBird scripts.
+- Keep the filter under `[badamsz/MiSTer_Scripts]`, not `[mister]`, or it will apply to every database.
+- Scripts you filter out after installing them are removed on the next run.
+
+See the [Downloader filter docs](https://github.com/MiSTer-devel/Downloader_MiSTer/blob/main/docs/download-filters.md) for the full syntax.
