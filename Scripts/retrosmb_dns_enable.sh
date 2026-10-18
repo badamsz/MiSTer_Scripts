@@ -1,7 +1,7 @@
 #!/bin/bash
 # Enables the retrosmb DNS helper on boot. If retrosmb_dns_helper.ini doesn't exist yet
 # (or still has the placeholder remote_ip), it is created from _retrosmb_dns_helper.ini
-# after asking for target_host and remote_ip. The prompts use dialog menus so they can
+# after asking for target_host, remote_ip and run_cifs_mount. The prompts use dialog menus so they can
 # be driven with a controller from the OSD (D-pad to move, A/Enter to select, B/Esc to go back).
 
 STARTUP_FILE="/media/fat/linux/user-startup.sh"
@@ -55,21 +55,23 @@ is_valid_hostname() {
     [[ "$1" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]]
 }
 
-# Writes the INI from the template (or built-in defaults), setting target_host and remote_ip
+# Writes the INI from the template (or built-in defaults), setting target_host, remote_ip
+# and run_cifs_mount
 write_config() {
-    local target_host="$1" remote_ip="$2" src="$TEMPLATE_FILE"
+    local target_host="$1" remote_ip="$2" run_cifs="$3" src="$TEMPLATE_FILE"
     local tmp="$CONFIG_FILE.tmp.$$"
 
     if [ ! -f "$src" ]; then
         src=/dev/null
     fi
 
-    awk -v th="$target_host" -v ip="$remote_ip" '
+    awk -v th="$target_host" -v ip="$remote_ip" -v rc="$run_cifs" '
         BEGIN { have_section = 0 }
         { sub(/\r$/, "") }
         /^[[:space:]]*\[/ { have_section = 1 }
-        /^[[:space:]]*target_host[[:space:]]*=/ { print "target_host=" th; set_th = 1; next }
-        /^[[:space:]]*remote_ip[[:space:]]*=/   { print "remote_ip=" ip;   set_ip = 1; next }
+        /^[[:space:]]*target_host[[:space:]]*=/    { print "target_host=" th;    set_th = 1; next }
+        /^[[:space:]]*remote_ip[[:space:]]*=/      { print "remote_ip=" ip;      set_ip = 1; next }
+        /^[[:space:]]*run_cifs_mount[[:space:]]*=/ { print "run_cifs_mount=" rc; set_rc = 1; next }
         { print }
         END {
             if (!have_section) {
@@ -77,10 +79,10 @@ write_config() {
                 print "local_domain=retronas"
                 print "network_timeout=60"
                 print "cifs_ini_file=/media/fat/Scripts/cifs_mount.ini"
-                print "run_cifs_mount=false"
             }
             if (!set_th) print "target_host=" th
             if (!set_ip) print "remote_ip=" ip
+            if (!set_rc) print "run_cifs_mount=" rc
         }' "$src" > "$tmp" && mv "$tmp" "$CONFIG_FILE"
 }
 
@@ -255,6 +257,21 @@ prompt_remote_ip() {
     done
 }
 
+RUN_CIFS_HELP="Have the helper run cifs_mount.sh after updating SERVER in cifs_mount.ini (run_cifs_mount)?\n\nThis guarantees the shares mount with the updated address. If enabled, set MOUNT_AT_BOOT=\"false\" in cifs_mount.ini so the shares aren't also mounted separately at boot (possibly earlier, with the old address)."
+
+# Sets $REPLY to true/false. Returns non-zero on back.
+prompt_run_cifs_mount() {
+    run_dialog --default-item NO --menu "$RUN_CIFS_HELP" 18 70 2 \
+        NO  "No - leave mounting to cifs_mount.sh (default)" \
+        YES "Yes - run cifs_mount.sh after updating SERVER" || return 1
+
+    if [ "$REPLY" = "YES" ]; then
+        REPLY=true
+    else
+        REPLY=false
+    fi
+}
+
 # Plain-text setup for terminals without dialog (e.g. a minimal SSH session)
 prompt_plain() {
     local peers
@@ -277,6 +294,10 @@ prompt_plain() {
         echo "Invalid IPv4 address."
     done
     REMOTE_IP="$REPLY"
+
+    echo -e "$RUN_CIFS_HELP"
+    read -r -p "Enable run_cifs_mount? [y/N]: " ans
+    case "$ans" in [Yy]*) RUN_CIFS_MOUNT=true ;; *) RUN_CIFS_MOUNT=false ;; esac
 }
 
 run_setup() {
@@ -285,17 +306,22 @@ run_setup() {
         TARGET_HOST="$REPLY"
         prompt_remote_ip || return 1
         REMOTE_IP="$REPLY"
+        prompt_run_cifs_mount || return 1
+        RUN_CIFS_MOUNT="$REPLY"
 
         run_dialog --yesno \
-            "Save these settings to\n$CONFIG_FILE?\n\ntarget_host=$TARGET_HOST\nremote_ip=$REMOTE_IP" \
-            12 60 || return 1
+            "Save these settings to\n$CONFIG_FILE?\n\ntarget_host=$TARGET_HOST\nremote_ip=$REMOTE_IP\nrun_cifs_mount=$RUN_CIFS_MOUNT" \
+            13 60 || return 1
         clear
     else
         prompt_plain
     fi
 
-    write_config "$TARGET_HOST" "$REMOTE_IP" || return 1
-    echo "Created $CONFIG_FILE (target_host=$TARGET_HOST, remote_ip=$REMOTE_IP)."
+    write_config "$TARGET_HOST" "$REMOTE_IP" "$RUN_CIFS_MOUNT" || return 1
+    echo "Created $CONFIG_FILE (target_host=$TARGET_HOST, remote_ip=$REMOTE_IP, run_cifs_mount=$RUN_CIFS_MOUNT)."
+    if [ "$RUN_CIFS_MOUNT" = "true" ]; then
+        echo "Reminder: set MOUNT_AT_BOOT=\"false\" in cifs_mount.ini."
+    fi
 }
 
 # ==========================================
