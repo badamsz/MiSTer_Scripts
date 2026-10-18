@@ -43,10 +43,16 @@ NetBird's binaries and state are kept in `/media/fat/linux/netbird/`. NetBird DN
 These scripts automate and manage the process of configuring CIFS network mounts to prefer local connections over VPN when connecting to a RetroNAS setup. By mapping these remote shares based selectively your MiSTer can seamlessly load games, BIOS files, and save states directly over local *or* remote networks rather than relying entirely on local SD card storage.
 
 *   `retrosmb_dns_helper.sh`: Checks to see if `local_domain` server is resoveable and if not fails to `remote_ip`. Sets a local hosts entry with the resovled address. Optionally can update `cifs_mount.ini` file if defined as the MiSTer `cifs_mount.sh` script doesn't currently support hosts resolution.
-*   `retrosmb_dns_enable.sh`: Enables DNS helper start on boot via `user-startup.sh`
+*   `retrosmb_dns_enable.sh`: Enables DNS helper start on boot via `user-startup.sh`. If `retrosmb_dns_helper.ini` doesn't exist yet (or still has the placeholder `remote_ip`), it walks you through creating it from the template.
 *   `retrosmb_dns_disable.sh`: Disables DNS helper start on boot via `user-startup.sh`
 
-Copy or rename the template `_retrosmb_dns_helper.ini` in the `/media/fat/Scripts/` folder and configure as needed.
+The easiest way to configure the helper is to run `retrosmb_dns_enable.sh` from the OSD. The setup menus work with a controller (D-pad to move, A to select, B to go back):
+
+*   **target_host**: Keep the default `retrosmb`, or enter your own name.
+*   **remote_ip**: Pick your RetroNAS host from a list of your Tailscale or NetBird peers (shown when either is installed and connected), or enter the address manually.
+*   Values can be entered with an on-screen keypad using just the controller, or typed with a keyboard.
+
+Alternatively, copy or rename the template `_retrosmb_dns_helper.ini` in the `/media/fat/Scripts/` folder and configure it by hand.
 
 ```ini
 [Network]
